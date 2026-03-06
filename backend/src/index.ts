@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 dotenv.config();
 
 import authRoutes from './routes/auth';
@@ -17,14 +18,39 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/api/auth', authRoutes);
-app.use('/api/profile', authenticate, profileRoutes);
-app.use('/api/food', authenticate, foodRoutes);
-app.use('/api/workouts', authenticate, workoutRoutes);
-app.use('/api/progress', authenticate, progressRoutes);
-app.use('/api/habits', authenticate, habitRoutes);
-app.use('/api/ai', authenticate, aiRoutes);
-app.use('/api/dashboard', authenticate, dashboardRoutes);
+// Rate limiting
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 50,
+  message: { error: 'AI rate limit exceeded, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/profile', apiLimiter, authenticate, profileRoutes);
+app.use('/api/food', apiLimiter, authenticate, foodRoutes);
+app.use('/api/workouts', apiLimiter, authenticate, workoutRoutes);
+app.use('/api/progress', apiLimiter, authenticate, progressRoutes);
+app.use('/api/habits', apiLimiter, authenticate, habitRoutes);
+app.use('/api/ai', aiLimiter, authenticate, aiRoutes);
+app.use('/api/dashboard', apiLimiter, authenticate, dashboardRoutes);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
